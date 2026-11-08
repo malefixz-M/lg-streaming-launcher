@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+import json
+import re
+import sys
+import urllib.request
+from datetime import datetime, timezone
+from html import unescape
+from urllib.parse import urlsplit
+
+SOURCE_URL = "https://telegra.ph/Link-Aggiornato-StreamingCommunity-09-29"
+READER_URL = "https://r.jina.ai/" + SOURCE_URL
+OUTPUT = "docs/latest.json"
+
+def fetch(url):
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (compatible; LGStreamingLauncher/1.0)",
+            "Accept": "text/plain,text/html,*/*",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return response.read().decode("utf-8", errors="replace")
+
+def valid_candidate(candidate):
+    candidate = unescape(candidate).replace(r"\\/", "/").strip()
+    candidate = candidate.rstrip(".,;:!?)]}>'\\"")
+    if not candidate.startswith("https://"):
+        return None
+    try:
+        parsed = urlsplit(candidate)
+        host = (parsed.hostname or "").lower()
+        if not host or "streamingcommunity" not in host:
+            return None
+        if parsed.username or parsed.password:
+            return None
+        return "https://" + host + "/"
+    except ValueError:
+        return None
+
+def main():
+    text = fetch(READER_URL)
+    # Il reader Jina restituisce normalmente i link Telegraph come URL in chiaro
+    # o come link Markdown. Cerchiamo URL completi in ordine di apparizione.
+    candidates = re.findall(r"https?://[^\\s<>\\\"'`]+", text)
+    for candidate in candidates:
+        resolved = valid_candidate(candidate)
+        if resolved:
+            payload = {
+                "url": resolved,
+                "source": SOURCE_URL,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            with open(OUTPUT, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+                f.write("\\n")
+            print("Dominio aggiornato:", resolved)
+            return
+    print("Nessun dominio StreamingCommunity valido trovato.", file=sys.stderr)
+    sys.exit(1)
+
+if __name__ == "__main__":
+    main()

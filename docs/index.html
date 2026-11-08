@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Avvio StreamingCommunity</title>
+  <style>
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#101216;color:#f4f4f5;font:16px system-ui,sans-serif}
+    main{max-width:34rem;padding:2rem;text-align:center}
+    p{color:#b8bdc7}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>StreamingCommunity</h1>
+    <p id="status">Recupero dell'indirizzo aggiornato…</p>
+  </main>
+  <script>
+    (async function () {
+      var status = document.getElementById("status");
+      try {
+        var response = await fetch("./latest.json?ts=" + Date.now(), { cache: "no-store" });
+        if (!response.ok) throw new Error("File dominio non disponibile");
+        var data = await response.json();
+        var target = new URL(data.url);
+        if (target.protocol !== "https:" || !target.hostname.toLowerCase().includes("streamingcommunity")) {
+          throw new Error("Indirizzo non valido");
+        }
+        status.textContent = "Apertura del sito aggiornato…";
+        window.location.replace(target.href);
+      } catch (error) {
+        status.textContent = "Impossibile recuperare il dominio aggiornato. Riprova più tardi.";
+      }
+    })();
+  </script>
+</body>
+</html>
