@@ -1,4 +1,6 @@
+
 #!/usr/bin/env python3
+
 import json
 import re
 import sys
@@ -11,6 +13,7 @@ SOURCE_URL = "https://telegra.ph/Link-Aggiornato-StreamingCommunity-09-29"
 READER_URL = "https://r.jina.ai/" + SOURCE_URL
 OUTPUT = "docs/latest.json"
 
+
 def fetch(url):
     request = urllib.request.Request(
         url,
@@ -19,45 +22,70 @@ def fetch(url):
             "Accept": "text/plain,text/html,*/*",
         },
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
+
+    with urllib.request.urlopen(request, timeout=40) as response:
         return response.read().decode("utf-8", errors="replace")
 
+
 def valid_candidate(candidate):
-    candidate = unescape(candidate).replace(r"\\/", "/").strip()
-    candidate = candidate.rstrip(".,;:!?)]}>'\\"")
+    candidate = unescape(candidate)
+    candidate = candidate.replace("\\/", "/").strip()
+    candidate = candidate.rstrip(".,;:!?)]}>")
+
     if not candidate.startswith("https://"):
         return None
+
     try:
         parsed = urlsplit(candidate)
         host = (parsed.hostname or "").lower()
+
         if not host or "streamingcommunity" not in host:
             return None
+
         if parsed.username or parsed.password:
             return None
+
         return "https://" + host + "/"
+
     except ValueError:
         return None
 
+
 def main():
+    print("Leggo la pagina Telegraph...")
+
     text = fetch(READER_URL)
-    # Il reader Jina restituisce normalmente i link Telegraph come URL in chiaro
-    # o come link Markdown. Cerchiamo URL completi in ordine di apparizione.
-    candidates = re.findall(r"https?://[^\\s<>\\\"'`]+", text)
+
+    candidates = re.findall(
+        r"""https?://[^\s<>"'`]+""",
+        text
+    )
+
+    print("Indirizzi trovati:", len(candidates))
+
     for candidate in candidates:
         resolved = valid_candidate(candidate)
+
         if resolved:
             payload = {
                 "url": resolved,
                 "source": SOURCE_URL,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
-            with open(OUTPUT, "w", encoding="utf-8") as f:
-                json.dump(payload, f, ensure_ascii=False, indent=2)
-                f.write("\\n")
+
+            with open(OUTPUT, "w", encoding="utf-8") as file:
+                json.dump(payload, file, ensure_ascii=False, indent=2)
+                file.write("\n")
+
             print("Dominio aggiornato:", resolved)
             return
-    print("Nessun dominio StreamingCommunity valido trovato.", file=sys.stderr)
+
+    print(
+        "ERRORE: nessun dominio StreamingCommunity valido trovato.",
+        file=sys.stderr
+    )
     sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
